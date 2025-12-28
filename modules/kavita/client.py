@@ -4,11 +4,14 @@ Handles authentication and data fetching from Kavita server
 """
 
 import httpx
+
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel
-import logging
 
-logger = logging.getLogger(__name__)
+from config import settings
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class KavitaConfig(BaseModel):
@@ -104,6 +107,38 @@ class KavitaClient:
         response.raise_for_status()
         return response.json()
 
+    async def get_series_volumes(self, series_id: int) -> List[Dict[str, Any]]:
+        """Get detailed information about a series"""
+        response = await self.client.get(
+            f"{self.base_url}/api/series/series-detail?seriesId={series_id}",
+            headers=self._get_headers(),
+        )
+        response.raise_for_status()
+        results = response.json()
+
+        all_volumes = []
+        for volume in results["volumes"]:
+            all_volumes.append(
+                {
+                    "id": volume["id"],
+                    "name": volume["name"],
+                    "pages": volume["pages"],
+                    "seriesId": volume["seriesId"],
+                    "chapterId": volume["chapters"][0]["id"],
+                }
+            )
+
+        return all_volumes
+
+    async def get_book_page(self, chapter_id: int, page: int) -> str:
+        """Get detailed information about a series"""
+        response = await self.client.get(
+            f"{self.base_url}/api/book/{chapter_id}/book-page?page={page}",
+            headers=self._get_headers(),
+        )
+        response.raise_for_status()
+        return response.text
+
     async def get_volumes(self, series_id: int) -> List[Dict[str, Any]]:
         """Get all volumes for a series"""
         response = await self.client.get(
@@ -198,3 +233,21 @@ class KavitaClient:
     async def close(self):
         """Close the HTTP client"""
         await self.client.aclose()
+
+
+config = KavitaConfig(
+    base_url=settings.kavita_base_url,
+    api_key=settings.kavita_api_key,
+    plugin_name=settings.kavita_plugin_name,
+)
+
+kavita_client = KavitaClient(config)
+
+
+async def connect_kavita_server():
+    # Authenticate with Kavita
+    auth_success = await kavita_client.authenticate()
+    if not auth_success:
+        logger.error("Failed to authenticate with Kavita server")
+    else:
+        logger.info("Successfully authenticated with Kavita server")
