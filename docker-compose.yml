@@ -1,0 +1,18 @@
+services:
+  eink-server:
+    build: .
+    container_name: eink-server
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist the database file so you don't lose your place/bookmarks
+      - ./epaper.db:/app/epaper.db
+      # Optional: Mount source code for development (changes reflect immediately)
+      # - .:/app
+    environment:
+      - TZ=Asia/Kolkata  # Set your timezone for correct logs
+      # If Kavita is running on the HOST machine, use host.docker.internal
+      # instead of localhost/127.0.0.1 inside the Python config.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
